@@ -15,7 +15,7 @@ Use this script for legal and ethical purposes only. Invading another's privacy 
 ## Supported Operating Systems
 
 -Windows
-- macOS
+-MacOS
 -Linux
 
 The code has been tested on these operating systems and is working.
